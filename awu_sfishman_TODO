@@ -1,0 +1,49 @@
+Stuff for Niv and Manos:
+- looked at RocksDB, which claimed to have
+- LevelDB
+
+db_impl.cc
+
+block_builder.cc
+- stores prefix-compressed keys, has restart points stored at end of tables
+- each entry has shared_bytes, unshared_bytes, value_length, key_delta, value
+
+merger.cc
+
+Where do they sort runs by key?
+- Skiplist.cc, layered linked list
+
+db_impl.cc
+- WriteLevel0Table - calls memtable insert, which accesses, splits, which enforces sorting
+- CompactMemTable
+- BackgroundCompaction
+- DoCompactionWork
+
+Should we be having runs in the background?
+
+change criteria for compaction, NeedsCompaction
+
+Questions I want answered:
+- Where is compaction_score_ changed and does logic need to be changed to check? Finalize in version_set.cc
+- Decide how to change DoCompationWork
+- Where can we change k statically? MaxBytesForLevel in version_set.cc, change 10 to k
+
+What needs to change?
+- Get needs to change, can’t assume files form one sorted run
+- DoCompactionWork needs to change. instead of merging iterator, just put a new file next
+- Iterative approach to size-tiered? exactly what are we doing?
+- Would it be hard to change k for level-tiered?
+
+Static
+- Having different-k level-tiered (change 10 to k in the version_set.cc)
+- Having size-tiered - how should we do merging? should we think about partial merging?
+    - this involves changing DoCompactionWork, BackgroundCompaction
+    - changing Get 
+    - goal - need to avoid actual merging work
+
+Workloads
+- a lot of writing --> size-tiered
+- a lot of reading --> level-tiered
+
+How would we change k dynamically? we can just do it. maybe change so when
+we switch k, it immediately tries to fix all the levels
