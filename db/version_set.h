@@ -363,6 +363,8 @@ class Compaction {
   void ReleaseInputs();
 
  private:
+  // TODO: indication of whether level-tiered or size-tiered, enum maybe
+
   friend class Version;
   friend class VersionSet;
 

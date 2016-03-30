@@ -363,6 +363,10 @@ Status Version::Get(const ReadOptions& options,
       num_files = tmp.size();
     } else {
       // Binary search to find earliest index whose largest key >= ikey.
+
+      // TODO: for size-tiered trees, do the level-0 thing. more specifically,
+      //       account for the possibility that there are multiple possibly
+      //       unsorted runs, and that more than one file can contain the key.
       uint32_t index = FindFile(vset_->icmp_, files_[level], ikey);
       if (index >= num_files) {
         files = NULL;
@@ -702,6 +706,7 @@ class VersionSet::Builder {
   void SaveTo(Version* v) {
     BySmallestKey cmp;
     cmp.internal_comparator = &vset_->icmp_;
+    // TODO: maybe just append to the end. figure out what icmp does?
     for (int level = 0; level < config::kNumLevels; level++) {
       // Merge the set of added files with the set of pre-existing files.
       // Drop any deleted files.  Store the result in *v.
@@ -1323,6 +1328,7 @@ Compaction* VersionSet::PickCompaction() {
     // Note that the next call will discard the file we placed in
     // c->inputs_[0] earlier and replace it with an overlapping set
     // which will include the picked file.
+
     current_->GetOverlappingInputs(0, &smallest, &largest, &c->inputs_[0]);
     assert(!c->inputs_[0].empty());
   }
@@ -1337,6 +1343,7 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
   InternalKey smallest, largest;
   GetRange(c->inputs_[0], &smallest, &largest);
 
+  // TODO: for size-tiered, get overlapping inputs from level, instead of (level + 1)
   current_->GetOverlappingInputs(level+1, &smallest, &largest, &c->inputs_[1]);
 
   // Get entire range covered by compaction
@@ -1345,6 +1352,8 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
 
   // See if we can grow the number of inputs in "level" without
   // changing the number of "level+1" files we pick up.
+
+  // TODO: probably something here needs to change
   if (!c->inputs_[1].empty()) {
     std::vector<FileMetaData*> expanded0;
     current_->GetOverlappingInputs(level, &all_start, &all_limit, &expanded0);
