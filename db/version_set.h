@@ -52,7 +52,7 @@ extern int FindFile(const InternalKeyComparator& icmp,
 extern bool SomeFileOverlapsRange(
     const InternalKeyComparator& icmp,
     bool disjoint_sorted_files,
-    const std::vector<FileMetaData*>& files,
+    const std::vector<std::vector<FileMetaData*>>& files,
     const Slice* smallest_user_key,
     const Slice* largest_user_key);
 
@@ -108,7 +108,15 @@ class Version {
   int PickLevelForMemTableOutput(const Slice& smallest_user_key,
                                  const Slice& largest_user_key);
 
-  int NumFiles(int level) const { return files_[level].size(); }
+  int NumFiles(int level) const {
+    int sum = 0;
+    for (std::vector<FileMetaData*>::iterator iter = files_[level].begin();
+         iter != files_[level].end();
+         ++iter) {
+      sum += iter->size();
+    }
+    return sum;
+  }
 
   enum CompactionStrategy {
     kLevelTiered,
@@ -146,7 +154,7 @@ class Version {
   int refs_;                    // Number of live refs to this version
 
   // List of files per level
-  std::vector<FileMetaData*> files_[config::kNumLevels];
+  std::vector<std::vector<FileMetaData*>> files_[config::kNumLevels];
 
   // Next file to compact based on seek stats.
   FileMetaData* file_to_compact_;

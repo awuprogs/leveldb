@@ -824,6 +824,7 @@ Status DBImpl::FinishCompactionOutputFile(CompactionState* compact,
   if (s.ok()) {
     s = compact->builder->Finish();
   } else {
+    compact->builder->Abandon();
   }
   const uint64_t current_bytes = compact->builder->FileSize();
   compact->current_output()->file_size = current_bytes;
