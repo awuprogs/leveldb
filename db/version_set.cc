@@ -330,12 +330,6 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key,
   }
 }
 
-search_run() {
-  // Get the list of files to search in this level
-
-  return Status::NotFound(Slice());  // Use an empty error message for speed
-}
-
 Status Version::Get(const ReadOptions& options,
                     const LookupKey& k,
                     std::string* value,
