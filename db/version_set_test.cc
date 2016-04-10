@@ -11,14 +11,18 @@ namespace leveldb {
 
 class FindFileTest {
  public:
-  std::vector<FileMetaData*> files_;
+  std::vector<std::vector<FileMetaData*>> files_;
   bool disjoint_sorted_files_;
 
-  FindFileTest() : disjoint_sorted_files_(true) { }
+  FindFileTest() : disjoint_sorted_files_(true) {
+    files_.push_back(std::vector<FileMetaData*>());
+  }
 
   ~FindFileTest() {
     for (int i = 0; i < files_.size(); i++) {
-      delete files_[i];
+      for (int j = 0; j < files_[i].size(); j++) {
+        delete files_[i][j];
+      }
     }
   }
 
@@ -26,16 +30,16 @@ class FindFileTest {
            SequenceNumber smallest_seq = 100,
            SequenceNumber largest_seq = 100) {
     FileMetaData* f = new FileMetaData;
-    f->number = files_.size() + 1;
+    f->number = files_[0].size() + 1;
     f->smallest = InternalKey(smallest, smallest_seq, kTypeValue);
     f->largest = InternalKey(largest, largest_seq, kTypeValue);
-    files_.push_back(f);
+    files_[0].push_back(f);
   }
 
   int Find(const char* key) {
     InternalKey target(key, 100, kTypeValue);
     InternalKeyComparator cmp(BytewiseComparator());
-    return FindFile(cmp, files_, target.Encode());
+    return FindFile(cmp, files_[0], target.Encode());
   }
 
   bool Overlaps(const char* smallest, const char* largest) {

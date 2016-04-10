@@ -110,10 +110,10 @@ class Version {
 
   int NumFiles(int level) const {
     int sum = 0;
-    for (std::vector<FileMetaData*>::iterator iter = files_[level].begin();
-         iter != files_[level].end();
-         ++iter) {
-      sum += iter->size();
+    for (std::vector<std::vector<FileMetaData*>>::const_iterator run_iter = files_[level].begin();
+         run_iter != files_[level].end();
+         ++run_iter) {
+      sum += run_iter->size();
     }
     return sum;
   }
@@ -137,7 +137,7 @@ class Version {
   friend class VersionSet;
 
   class LevelFileNumIterator;
-  Iterator* NewConcatenatingIterator(const ReadOptions&, int level) const;
+  Iterator* NewConcatenatingIterator(const ReadOptions&, int level, int run) const;
 
   // Call func(arg, level, f) for every file that overlaps user_key in
   // order from newest to oldest.  If an invocation of func returns
@@ -415,7 +415,7 @@ class Compaction {
   // is that we are positioned at one of the file ranges for each
   // higher level than the ones involved in this compaction (i.e. for
   // all L >= level_ + 2).
-  size_t level_ptrs_[config::kNumLevels];
+  size_t *level_ptrs_[config::kNumLevels];
 };
 
 }  // namespace leveldb
