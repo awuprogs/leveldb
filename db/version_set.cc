@@ -792,7 +792,7 @@ class VersionSet::Builder {
 
 #ifndef NDEBUG
       // Make sure there is no overlap in levels > 0
-      if (v->GetCompactionStrategy() == Version::kLevelTiered && level > 0) {
+      if (v->GetCompactionStrategy() == kLevelTiered && level > 0) {
         for (uint32_t i = 1; i < v->files_[level][0].size(); i++) {
           const InternalKey& prev_end = v->files_[level][0][i-1]->largest;
           const InternalKey& this_begin = v->files_[level][0][i]->smallest;
@@ -1340,14 +1340,14 @@ Iterator* VersionSet::MakeInputIterator(Compaction* c) {
   // Level-0 files have to be merged together.  For other levels,
   // we will make a concatenating iterator per level.
   // TODO(opt): use concatenating iterator for level-0 if there is no overlap
-  const int space = (c->level() == 0 || c->input_version_->compaction_strategy_ == Version::kSizeTiered
+  const int space = (c->level() == 0 || c->input_version_->compaction_strategy_ == kSizeTiered
                      ? c->inputs_[0].size() + 1 : 2);
   Iterator** list = new Iterator*[space];
   int num = 0;
   // TODO: maybe use concat iterator over individual runs?
   for (int which = 0; which < 2; which++) {
     if (!c->inputs_[which].empty()) {
-      if (c->level() + which == 0 || c->input_version_->compaction_strategy_ == Version::kSizeTiered) {
+      if (c->level() + which == 0 || c->input_version_->compaction_strategy_ == kSizeTiered) {
         const std::vector<FileMetaData*>& files = c->inputs_[which];
         for (size_t i = 0; i < files.size(); i++) {
           list[num++] = table_cache_->NewIterator(
@@ -1434,10 +1434,10 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
   GetRange(c->inputs_[0], &smallest, &largest);
 
   switch (current_->GetCompactionStrategy()) {
-    case Version::kLevelTiered:
+    case kLevelTiered:
       current_->GetOverlappingInputs(level+1, &smallest, &largest, &c->inputs_[1]);
       break;
-    case Version::kSizeTiered:
+    case kSizeTiered:
       c->inputs_[0].clear();
       current_->GetOverlappingInputs(level, &smallest, &largest, &c->inputs_[0]);
       break;
@@ -1450,7 +1450,7 @@ void VersionSet::SetupOtherInputs(Compaction* c) {
   GetRange2(c->inputs_[0], c->inputs_[1], &all_start, &all_limit);
 
   // TODO: think of something similar for size-tiered
-  if (c->input_version_->compaction_strategy_ == Version::kLevelTiered) {
+  if (c->input_version_->compaction_strategy_ == kLevelTiered) {
     // See if we can grow the number of inputs in "level" without
     // changing the number of "level+1" files we pick up.
     if (!c->inputs_[1].empty()) {

@@ -38,6 +38,11 @@ struct Range {
   Range(const Slice& s, const Slice& l) : start(s), limit(l) { }
 };
 
+enum CompactionStrategy {
+  kLevelTiered,
+  kSizeTiered
+};
+
 // A DB is a persistent ordered map from keys to values.
 // A DB is safe for concurrent access from multiple threads without
 // any external synchronization.

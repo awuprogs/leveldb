@@ -116,10 +116,6 @@ class Version {
     return sum;
   }
 
-  enum CompactionStrategy {
-    kLevelTiered,
-    kSizeTiered
-  };
   void SetCompactionStrategy(enum CompactionStrategy s) {
     compaction_strategy_ = s;
   }
@@ -173,7 +169,7 @@ class Version {
         file_to_compact_level_(-1),
         compaction_score_(-1),
         compaction_level_(-1),
-        compaction_strategy_(kLevelTiered) {
+        compaction_strategy_(kSizeTiered) {
   }
 
   ~Version();
