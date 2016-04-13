@@ -354,13 +354,13 @@ Status Version::Get(const ReadOptions& options,
   std::vector<FileMetaData*> tmp;
   FileMetaData* tmp2;
   for (int level = 0; level < config::kNumLevels; level++) {
-    size_t num_files = NumFiles(level);
-    if (num_files == 0) continue;
-
     // Go in reverse to preserve temporal ordering
     for (std::vector<std::vector<FileMetaData*>>::reverse_iterator runit = files_[level].rbegin();
          runit != files_[level].rend();
          ++runit) {
+      size_t num_files = runit->size();
+      if (num_files == 0) continue;
+
       FileMetaData* const* files = &(*runit)[0];
       if (level == 0) {
         // Level-0 files may overlap each other.  Find all files that
@@ -743,10 +743,13 @@ class VersionSet::Builder {
       }
       std::vector<FileMetaData*>& base_files = base_->files_[level][num_runs - 1];
       const FileSet* added = levels_[level].added_files;
-      if (base_files.size() > 0 && base_->GetCompactionStrategy() == Version::kSizeTiered) {
+      // TODO: don't do this for level 0
+      if (base_files.size() > 0 && added->size() > 0 &&
+          base_->GetCompactionStrategy() == kSizeTiered) {
         // Check to see if we need to start a new run
+        FileMetaData* first = *(added->begin());
         if (vset_->icmp_.Compare(base_files[base_files.size() - 1]->largest.Encode(),
-                                 (*added->begin())->smallest.Encode()) >= 0) {
+                                 first->smallest.Encode()) >= 0) {
           std::vector<FileMetaData*> new_run = std::vector<FileMetaData*>();
           base_->files_[level].push_back(new_run);
           base_files = new_run;

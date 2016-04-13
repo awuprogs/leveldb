@@ -110,10 +110,8 @@ class Version {
 
   int NumFiles(int level) const {
     int sum = 0;
-    for (std::vector<std::vector<FileMetaData*>>::const_iterator run_iter = files_[level].begin();
-         run_iter != files_[level].end();
-         ++run_iter) {
-      sum += run_iter->size();
+    for (int run = 0; run < files_[level].size(); run++) {
+      sum += files_[level][run].size();
     }
     return sum;
   }
