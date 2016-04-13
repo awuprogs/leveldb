@@ -659,7 +659,11 @@ TEST(DBTest, GetEncountersEmptyLevel) {
     dbfull()->TEST_CompactRange(1, NULL, NULL);
     ASSERT_EQ(NumTableFilesAtLevel(0), 1);
     ASSERT_EQ(NumTableFilesAtLevel(1), 0);
-    ASSERT_EQ(NumTableFilesAtLevel(2), 1);
+    if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+      ASSERT_EQ(NumTableFilesAtLevel(2), 1);
+    } else {
+      ASSERT_EQ(NumTableFilesAtLevel(2), 2);
+    }
 
     // Step 3: read a bunch of times
     for (int i = 0; i < 1000; i++) {
