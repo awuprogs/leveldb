@@ -391,7 +391,7 @@ class Compaction {
   friend class Version;
   friend class VersionSet;
 
-  explicit Compaction(int level);
+  explicit Compaction(int level, Version* input);
 
   int level_;
   uint64_t max_output_file_size_;

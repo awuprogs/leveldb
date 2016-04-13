@@ -124,7 +124,7 @@ bool SomeFileOverlapsRange(
   if (!disjoint_sorted_files) {
     // Need to check against all files
     for (size_t run = 0; run < files.size(); run++) {
-      for (size_t i = 0; i < files[i].size(); i++) {
+      for (size_t i = 0; i < files[run].size(); i++) {
         const FileMetaData* f = files[run][i];
         if (AfterFile(ucmp, smallest_user_key, f) ||
             BeforeFile(ucmp, largest_user_key, f)) {
@@ -389,15 +389,15 @@ Status Version::Get(const ReadOptions& options,
           files = NULL;
           num_files = 0;
         } else {
-          for (uint32_t cur = index;
-               cur < num_files &&
-                 ucmp->Compare(user_key, files[cur]->smallest.user_key()) < 0;
-               ++cur) {
-            tmp.push_back(files[index]);
+          tmp2 = files[index];
+          if (ucmp->Compare(user_key, tmp2->smallest.user_key()) < 0) {
+            // All of "tmp2" is past any data for user_key
+            files = NULL;
+            num_files = 0;
+          } else {
+            files = &tmp2;
+            num_files = 1;
           }
-          std::sort(tmp.begin(), tmp.end(), NewestFirst);
-          files = &tmp[0];
-          num_files = tmp.size();
         }
       }
 
@@ -557,8 +557,10 @@ void Version::GetOverlappingInputs(
     user_end = end->user_key();
   }
   const Comparator* user_cmp = vset_->icmp_.user_comparator();
-  for (size_t run = 0; run < files_[level].size(); ) {
-    std::vector<FileMetaData*> run_files = files_[level][run++];
+  size_t num_runs = files_[level].size();
+restart_search:
+  for (size_t run = 0; run < num_runs; run++) {
+    std::vector<FileMetaData*> run_files = files_[level][run];
     for (size_t i = 0; i < files_[level][run].size(); i++) {
       FileMetaData* f = run_files[i];
       const Slice file_start = f->smallest.user_key();
@@ -576,14 +578,12 @@ void Version::GetOverlappingInputs(
           if (begin != NULL && user_cmp->Compare(file_start, user_begin) < 0) {
             user_begin = file_start;
             inputs->clear();
-            run = 0;
-            break;
+            goto restart_search;
           }
           if (end != NULL && user_cmp->Compare(file_limit, user_end) > 0) {
             user_end = file_limit;
             inputs->clear();
-            run = 0;
-            break;
+            goto restart_search;
           }
         }
       }
@@ -757,6 +757,7 @@ class VersionSet::Builder {
       std::vector<FileMetaData*>::const_iterator base_end = base_files.end();
 
       for (int i = 0; i < num_runs - 1; i++) {
+        v->files_[level].push_back(std::vector<FileMetaData*>());
         std::vector<FileMetaData*>* cur = &base_->files_[level][i];
         for (std::vector<FileMetaData*>::iterator it = cur->begin();
              it != cur->end();
@@ -765,6 +766,7 @@ class VersionSet::Builder {
         }
       }
 
+      v->files_[level].push_back(std::vector<FileMetaData*>());
       v->files_[level][num_runs - 1].reserve(base_files.size() + added->size());
       for (FileSet::const_iterator added_iter = added->begin();
            added_iter != added->end();
@@ -787,7 +789,7 @@ class VersionSet::Builder {
 
 #ifndef NDEBUG
       // Make sure there is no overlap in levels > 0
-      if (v->GetCompactionStrategy() == kLevelTiered && level > 0) {
+      if (v->GetCompactionStrategy() == Version::kLevelTiered && level > 0) {
         for (uint32_t i = 1; i < v->files_[level][0].size(); i++) {
           const InternalKey& prev_end = v->files_[level][0][i-1]->largest;
           const InternalKey& this_begin = v->files_[level][0][i]->smallest;
@@ -1374,7 +1376,8 @@ Compaction* VersionSet::PickCompaction() {
     level = current_->compaction_level_;
     assert(level >= 0);
     assert(level+1 < config::kNumLevels);
-    c = new Compaction(level);
+    current_->Ref();
+    c = new Compaction(level, current_);
 
     // Pick the first file that comes after compact_pointer_[level]
     for (int run = 0; run < current_->files_[level].size(); run++) {
@@ -1398,14 +1401,12 @@ Compaction* VersionSet::PickCompaction() {
     }
   } else if (seek_compaction) {
     level = current_->file_to_compact_level_;
-    c = new Compaction(level);
+    current_->Ref();
+    c = new Compaction(level, current_);
     c->inputs_[0].push_back(current_->file_to_compact_);
   } else {
     return NULL;
   }
-
-  c->input_version_ = current_;
-  c->input_version_->Ref();
 
   // Files in level 0 may overlap each other, so pick up all overlapping ones
   if (level == 0) {
@@ -1531,25 +1532,24 @@ Compaction* VersionSet::CompactRange(
     }
   }
 
-  Compaction* c = new Compaction(level);
-  c->input_version_ = current_;
-  c->input_version_->Ref();
+  current_->Ref();
+  Compaction* c = new Compaction(level, current_);
   c->inputs_[0] = inputs;
   SetupOtherInputs(c);
   return c;
 }
 
-Compaction::Compaction(int level)
+Compaction::Compaction(int level, Version* input)
     : level_(level),
       max_output_file_size_(MaxFileSizeForLevel(level)),
-      input_version_(NULL),
       grandparent_index_(0),
       seen_key_(false),
       overlapped_bytes_(0) {
+  input_version_ = input;
   for (int i = 0; i < config::kNumLevels; i++) {
     level_ptrs_[i] = new size_t[input_version_->files_[i].size()];
     for (int j = 0; j < input_version_->files_[i].size(); j++) {
-      level_ptrs_[i] = 0;
+      level_ptrs_[i][j] = 0;
     }
   }
 }
