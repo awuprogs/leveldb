@@ -743,8 +743,7 @@ class VersionSet::Builder {
       }
       std::vector<FileMetaData*>& base_files = base_->files_[level][num_runs - 1];
       const FileSet* added = levels_[level].added_files;
-      // TODO: don't do this for level 0
-      if (base_files.size() > 0 && added->size() > 0 &&
+      if (level > 0 && base_files.size() > 0 && added->size() > 0 &&
           base_->GetCompactionStrategy() == kSizeTiered) {
         // Check to see if we need to start a new run
         FileMetaData* first = *(added->begin());
