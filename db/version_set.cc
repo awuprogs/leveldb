@@ -789,6 +789,22 @@ class VersionSet::Builder {
         MaybeAddFile(v, level, num_runs - 1, *base_iter);
       }
 
+      // Prune empty runs
+      for (std::vector<std::vector<FileMetaData*>>::iterator run_it
+               = v->files_[level].begin();
+           run_it != v->files_[level].end();
+           /* nothing */) {
+        if (run_it->size () == 0) {
+          // Free the underlying virtual memory
+          run_it->shrink_to_fit();
+          assert(run_it->capacity() == 0);
+          // Remove from level's vector of runs
+          run_it = v->files_[level].erase(run_it);
+        } else {
+          ++run_it;
+        }
+      }
+
 #ifndef NDEBUG
       // Make sure there is no overlap in levels > 0
       if (v->GetCompactionStrategy() == kLevelTiered && level > 0) {
