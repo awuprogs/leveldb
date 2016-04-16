@@ -1598,7 +1598,25 @@ void Compaction::AddInputDeletions(VersionEdit* edit) {
 bool Compaction::IsBaseLevelForKey(const Slice& user_key) {
   // Maybe use binary search to find right entry instead of linear search?
   const Comparator* user_cmp = input_version_->vset_->icmp_.user_comparator();
-  for (int lvl = level_ + 2; lvl < config::kNumLevels; lvl++) {
+
+  // For size-tiered, need to check part of the current level, too, since we
+  // aren't merging over the contents of it.
+  int lvl;
+  switch (input_version_->GetCompactionStrategy()) {
+    case kLevelTiered:
+      lvl = level_ + 2;
+      break;
+    case kSizeTiered:
+      // Technically, we don't need to check last run if we are
+      // appending to it, but it's easier to just check everything
+      // all the time.
+      lvl = level_ + 1;
+      break;
+    default:
+      assert(false);
+  }
+
+  for (; lvl < config::kNumLevels; lvl++) {
     for (int run = 0; run < input_version_->files_[lvl].size(); run++) {
       const std::vector<FileMetaData*>& files = input_version_->files_[lvl][run];
       for (; level_ptrs_[lvl][run] < files.size(); ) {

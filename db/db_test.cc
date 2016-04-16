@@ -1058,11 +1058,15 @@ TEST(DBTest, SparseMerge) {
 
   // Compactions should not cause us to create a situation where
   // a file overlaps too much data at the next level.
-  ASSERT_LE(dbfull()->TEST_MaxNextLevelOverlappingBytes(), 20*1048576);
+  // TODO: come up with an equivalent condition for size-tiered
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered)
+    ASSERT_LE(dbfull()->TEST_MaxNextLevelOverlappingBytes(), 20*1048576);
   dbfull()->TEST_CompactRange(0, NULL, NULL);
-  ASSERT_LE(dbfull()->TEST_MaxNextLevelOverlappingBytes(), 20*1048576);
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered)
+    ASSERT_LE(dbfull()->TEST_MaxNextLevelOverlappingBytes(), 20*1048576);
   dbfull()->TEST_CompactRange(1, NULL, NULL);
-  ASSERT_LE(dbfull()->TEST_MaxNextLevelOverlappingBytes(), 20*1048576);
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered)
+    ASSERT_LE(dbfull()->TEST_MaxNextLevelOverlappingBytes(), 20*1048576);
 }
 
 static bool Between(uint64_t val, uint64_t low, uint64_t high) {
@@ -1285,7 +1289,15 @@ TEST(DBTest, DeletionMarkers1) {
   dbfull()->TEST_CompactRange(last-1, NULL, NULL);
   // Merging last-1 w/ last, so we are the base level for "foo", so
   // DEL is removed.  (as is v1).
-  ASSERT_EQ(AllEntriesFor("foo"), "[ v2 ]");
+  // If we are size-tiered, then v2 is on a different run than v1, so
+  // they both still show up.
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    ASSERT_EQ(AllEntriesFor("foo"), "[ v2 ]");
+  } else {
+    ASSERT_EQ(NumTableFilesAtLevel(last), 2);
+    ASSERT_EQ(NumTableFilesAtLevel(last-1), 0);
+    ASSERT_EQ(AllEntriesFor("foo"), "[ v2, v1 ]");
+  }
 }
 
 TEST(DBTest, DeletionMarkers2) {
@@ -1311,7 +1323,15 @@ TEST(DBTest, DeletionMarkers2) {
   dbfull()->TEST_CompactRange(last-1, NULL, NULL);
   // Merging last-1 w/ last, so we are the base level for "foo", so
   // DEL is removed.  (as is v1).
-  ASSERT_EQ(AllEntriesFor("foo"), "[ ]");
+  // If we are size-tiered, then v2 is on a different run than v1, so
+  // they both still show up.
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    ASSERT_EQ(AllEntriesFor("foo"), "[ ]");
+  } else {
+    ASSERT_EQ(NumTableFilesAtLevel(last), 2);
+    ASSERT_EQ(NumTableFilesAtLevel(last-1), 0);
+    ASSERT_EQ(AllEntriesFor("foo"), "[ DEL, v1 ]");
+  }
 }
 
 TEST(DBTest, OverlapInLevel0) {
