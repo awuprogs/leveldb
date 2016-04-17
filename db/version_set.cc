@@ -1192,7 +1192,7 @@ Status VersionSet::WriteSnapshot(log::Writer* log) {
 
   // Save files
   for (int level = 0; level < config::kNumLevels; level++) {
-    for (int run = 0; run < current_->files_[run].size(); run++) {
+    for (int run = 0; run < current_->files_[level].size(); run++) {
       const std::vector<FileMetaData*>& files = current_->files_[level][run];
       for (size_t i = 0; i < files.size(); i++) {
         const FileMetaData* f = files[i];
