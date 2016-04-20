@@ -733,31 +733,33 @@ class VersionSet::Builder {
   void SaveTo(Version* v) {
     BySmallestKey cmp;
     cmp.internal_comparator = &vset_->icmp_;
+    std::vector<FileMetaData*> empty_run; // fake empty run
     for (int level = 0; level < config::kNumLevels; level++) {
       // Merge the set of added files with the set of pre-existing files.
       // Drop any deleted files.  Store the result in *v.
-      int num_runs = base_->files_[level].size();
-      if (num_runs == 0) {
-          base_->files_[level].push_back(std::vector<FileMetaData*>());
-          num_runs = 1;
-      }
-      std::vector<FileMetaData*>& base_files = base_->files_[level][num_runs - 1];
       const FileSet* added = levels_[level].added_files;
-      if (level > 0 && base_files.size() > 0 && added->size() > 0 &&
+      int num_runs = base_->files_[level].size();
+      std::vector<FileMetaData*>* base_files = &empty_run;
+      if (num_runs > 0) {
+        base_files = &base_->files_[level][num_runs - 1];
+      } else if (added->size() > 0) {
+        num_runs = 1;
+      } else {
+        continue;
+      }
+
+      if (level > 0 && base_files && base_files->size() > 0 && added->size() > 0 &&
           base_->GetCompactionStrategy() == kSizeTiered) {
         // Check to see if we need to start a new run
         FileMetaData* first = *(added->begin());
-        if (vset_->icmp_.Compare(base_files[base_files.size() - 1]->largest.Encode(),
+        if (vset_->icmp_.Compare((*base_files)[base_files->size() - 1]->largest.Encode(),
                                  first->smallest.Encode()) >= 0) {
-          std::vector<FileMetaData*> new_run = std::vector<FileMetaData*>();
-          base_->files_[level].push_back(new_run);
-          base_files = new_run;
+          base_files = &empty_run;
           num_runs++;
         }
       }
-      std::vector<FileMetaData*>::const_iterator base_iter = base_files.begin();
-      std::vector<FileMetaData*>::const_iterator base_end = base_files.end();
 
+      // Transfer older runs
       for (int i = 0; i < num_runs - 1; i++) {
         v->files_[level].push_back(std::vector<FileMetaData*>());
         std::vector<FileMetaData*>* cur = &base_->files_[level][i];
@@ -768,8 +770,11 @@ class VersionSet::Builder {
         }
       }
 
+      std::vector<FileMetaData*>::const_iterator base_iter = base_files->begin();
+      std::vector<FileMetaData*>::const_iterator base_end = base_files->end();
+
       v->files_[level].push_back(std::vector<FileMetaData*>());
-      v->files_[level][num_runs - 1].reserve(base_files.size() + added->size());
+      v->files_[level][num_runs - 1].reserve(base_files->size() + added->size());
       for (FileSet::const_iterator added_iter = added->begin();
            added_iter != added->end();
            ++added_iter) {
