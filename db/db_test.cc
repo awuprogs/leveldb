@@ -1012,9 +1012,24 @@ TEST(DBTest, RepeatedWritesToSameKey) {
   options.write_buffer_size = 100000;  // Small write buffer
   Reopen(&options);
 
-  // We must have at most one file per level except for level-0,
-  // which may have up to kL0_StopWritesTrigger files.
-  const int kMaxFiles = config::kNumLevels + config::kL0_StopWritesTrigger;
+  int x;
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    // We must have at most one file per level except for level-0,
+    // which may have up to kL0_StopWritesTrigger files.
+    x = config::kNumLevels + config::kL0_StopWritesTrigger;
+  } else {
+    // We can have k^i files per level (where i = the level number) since
+    // they are all allowed to overlap.
+    // However, it takes forever to run this test for 5*kMaxFiles iterations.
+    // TODO: replace this with something better.
+    x = config::kL0_StopWritesTrigger;
+    int maxruns = 1;
+    for (int i = 1; i < config::kNumLevels; i++) {
+      maxruns *= 2;
+      x += maxruns;
+    }
+  }
+  const int kMaxFiles = x;
 
   Random rnd(301);
   std::string value = RandomString(&rnd, 2 * options.write_buffer_size);
@@ -1513,21 +1528,45 @@ TEST(DBTest, ManualCompaction) {
 
   // Compaction range overlaps files
   Compact("p1", "p9");
-  ASSERT_EQ("0,0,1", FilesPerLevel());
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    ASSERT_EQ("0,0,1", FilesPerLevel());
+  } else {
+    // For size-tiered, you get 0,2,1 and then 0,0,2 for the two
+    // merges. In the first one, there are two runs on level-1, and
+    // in the second those two runs get merged and add a second run on
+    // level-3.
+    ASSERT_EQ("0,0,2", FilesPerLevel());
+  }
 
   // Populate a different range
   MakeTables(3, "c", "e");
-  ASSERT_EQ("1,1,2", FilesPerLevel());
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    ASSERT_EQ("1,1,2", FilesPerLevel());
+  } else {
+    ASSERT_EQ("1,1,3", FilesPerLevel());
+  }
 
   // Compact just the new range
   Compact("b", "f");
-  ASSERT_EQ("0,0,2", FilesPerLevel());
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    ASSERT_EQ("0,0,2", FilesPerLevel());
+  } else {
+    ASSERT_EQ("0,0,4", FilesPerLevel());
+  }
 
   // Compact all
   MakeTables(1, "a", "z");
-  ASSERT_EQ("0,1,2", FilesPerLevel());
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    ASSERT_EQ("0,1,2", FilesPerLevel());
+  } else {
+    ASSERT_EQ("0,1,4", FilesPerLevel());
+  }
   db_->CompactRange(NULL, NULL);
-  ASSERT_EQ("0,0,1", FilesPerLevel());
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    ASSERT_EQ("0,0,1", FilesPerLevel());
+  } else {
+    ASSERT_EQ("0,0,5", FilesPerLevel());
+  }
 }
 
 TEST(DBTest, DBOpen_Options) {
@@ -1729,7 +1768,10 @@ TEST(DBTest, FilesDeletedAfterCompaction) {
     ASSERT_OK(Put("foo", "v2"));
     Compact("a", "z");
   }
-  ASSERT_EQ(CountFiles(), num_files);
+  // This just isn't true for size-tiered
+  if (dbfull()->GetCurrentCompactionStrategy() == kLevelTiered) {
+    ASSERT_EQ(CountFiles(), num_files);
+  }
 }
 
 TEST(DBTest, BloomFilter) {
