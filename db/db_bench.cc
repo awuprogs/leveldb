@@ -106,6 +106,10 @@ static bool FLAGS_reuse_logs = false;
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
 
+static leveldb::CompactionStrategy FLAGS_strategy = leveldb::kLevelTiered;
+
+static int FLAGS_cfactor = 10;
+
 namespace leveldb {
 
 namespace {
@@ -711,6 +715,8 @@ class Benchmark {
       fprintf(stderr, "open error: %s\n", s.ToString().c_str());
       exit(1);
     }
+    reinterpret_cast<DBImpl*>(db_)->SetCompactionStrategy(FLAGS_strategy);
+    reinterpret_cast<DBImpl*>(db_)->SetCompactionFactor(FLAGS_cfactor);
   }
 
   void OpenBench(ThreadState* thread) {
@@ -981,6 +987,12 @@ int main(int argc, char** argv) {
       FLAGS_open_files = n;
     } else if (strncmp(argv[i], "--db=", 5) == 0) {
       FLAGS_db = argv[i] + 5;
+    } else if (strcmp(argv[i], "--leveled") == 0) {
+      FLAGS_strategy = leveldb::kLevelTiered;
+    } else if (strcmp(argv[i], "--tiered") == 0) {
+      FLAGS_strategy = leveldb::kSizeTiered;
+    } else if (sscanf(argv[i], "--compact_factor=%d%c", &n, &junk) == 1) {
+      FLAGS_cfactor = n;
     } else {
       fprintf(stderr, "Invalid flag '%s'\n", argv[i]);
       exit(1);
