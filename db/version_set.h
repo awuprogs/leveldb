@@ -116,13 +116,6 @@ class Version {
     return sum;
   }
 
-  void SetCompactionStrategy(enum CompactionStrategy s) {
-    compaction_strategy_ = s;
-  }
-  enum CompactionStrategy GetCompactionStrategy() const {
-    return compaction_strategy_;
-  }
-
   // Return a human readable string that describes this version's contents.
   std::string DebugString() const;
 
@@ -154,9 +147,6 @@ class Version {
   FileMetaData* file_to_compact_;
   int file_to_compact_level_;
 
-  // Compaction strategy
-  enum CompactionStrategy compaction_strategy_;
-
   // Level that should be compacted next and its compaction score.
   // Score < 1 means compaction is not strictly needed.  These fields
   // are initialized by Finalize().
@@ -168,8 +158,7 @@ class Version {
         file_to_compact_(NULL),
         file_to_compact_level_(-1),
         compaction_score_(-1),
-        compaction_level_(-1),
-        compaction_strategy_(kSizeTiered) {
+        compaction_level_(-1) {
   }
 
   ~Version();
@@ -285,6 +274,14 @@ class VersionSet {
   };
   const char* LevelSummary(LevelSummaryStorage* scratch) const;
 
+  // Compaction strategy getter/setter
+  void SetCompactionStrategy(enum CompactionStrategy s) {
+    compaction_strategy_ = s;
+  }
+  enum CompactionStrategy GetCompactionStrategy() const {
+    return compaction_strategy_;
+  }
+
  private:
   class Builder;
 
@@ -331,6 +328,9 @@ class VersionSet {
   // Per-level key at which the next compaction at that level should start.
   // Either an empty string, or a valid InternalKey.
   std::string compact_pointer_[config::kNumLevels];
+
+  // Compaction strategy
+  enum CompactionStrategy compaction_strategy_;
 
   // No copying allowed
   VersionSet(const VersionSet&);

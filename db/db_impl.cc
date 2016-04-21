@@ -1445,7 +1445,11 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
 }
 
 CompactionStrategy DBImpl::GetCurrentCompactionStrategy() {
-  return versions_->current()->GetCompactionStrategy();
+  return versions_->GetCompactionStrategy();
+}
+
+void DBImpl::SetCompactionStrategy(CompactionStrategy s) {
+  versions_->SetCompactionStrategy(s);
 }
 
 void DBImpl::GetApproximateSizes(
