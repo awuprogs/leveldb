@@ -20,8 +20,6 @@
 
 namespace leveldb {
 
-static const int kMergeFactor = 10;
-
 static const int kTargetFileSize = 2 * 1048576;
 
 // Maximum bytes of overlaps in grandparent (i.e., level+2) before we
@@ -33,12 +31,12 @@ static const int64_t kMaxGrandParentOverlapBytes = 10 * kTargetFileSize;
 // total compaction cover more than this many bytes.
 static const int64_t kExpandedCompactionByteSizeLimit = 25 * kTargetFileSize;
 
-static double MaxBytesForLevel(int level) {
+double VersionSet::MaxBytesForLevel(int level) {
   // Note: the result for level zero is not really used since we set
   // the level-0 compaction threshold based on number of files.
-  double result = kMergeFactor * 1048576.0;  // Result for both level-0 and level-1
+  double result = compact_factor_ * 1048576.0;  // Result for both level-0 and level-1
   while (level > 1) {
-    result *= kMergeFactor;
+    result *= compact_factor_;
     level--;
   }
   return result;
@@ -867,7 +865,8 @@ VersionSet::VersionSet(const std::string& dbname,
       descriptor_log_(NULL),
       dummy_versions_(this),
       current_(NULL),
-      compaction_strategy_(kSizeTiered) {
+      compaction_strategy_(kLevelTiered),
+      compact_factor_(10) {
   AppendVersion(new Version(this));
 }
 

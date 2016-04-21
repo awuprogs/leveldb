@@ -1445,11 +1445,18 @@ bool DBImpl::GetProperty(const Slice& property, std::string* value) {
 }
 
 CompactionStrategy DBImpl::GetCurrentCompactionStrategy() {
+  MutexLock l(&mutex_);
   return versions_->GetCompactionStrategy();
 }
 
 void DBImpl::SetCompactionStrategy(CompactionStrategy s) {
+  MutexLock l(&mutex_);
   versions_->SetCompactionStrategy(s);
+}
+
+void DBImpl::SetCompactionFactor(int factor) {
+  MutexLock l(&mutex_);
+  versions_->SetCompactionFactor(factor);
 }
 
 void DBImpl::GetApproximateSizes(

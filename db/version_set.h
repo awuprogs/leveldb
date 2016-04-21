@@ -282,6 +282,10 @@ class VersionSet {
     return compaction_strategy_;
   }
 
+  void SetCompactionFactor(int factor) {
+    compact_factor_ = factor;
+  }
+
  private:
   class Builder;
 
@@ -302,6 +306,8 @@ class VersionSet {
                  InternalKey* largest);
 
   void SetupOtherInputs(Compaction* c);
+
+  double MaxBytesForLevel(int level);
 
   // Save current contents to *log
   Status WriteSnapshot(log::Writer* log);
@@ -331,6 +337,7 @@ class VersionSet {
 
   // Compaction strategy
   enum CompactionStrategy compaction_strategy_;
+  int compact_factor_;
 
   // No copying allowed
   VersionSet(const VersionSet&);
