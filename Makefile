@@ -49,6 +49,7 @@ TESTS = \
 
 UTILS = \
 	db/db_bench \
+	db/db_new_bench \
 	db/leveldbutil
 
 # Put the object files in a subdirectory, but the application at the top of the object dir.
@@ -297,6 +298,9 @@ $(SHARED_MEMENVLIB):$(SHARED_MEMENVOBJECTS)
 
 $(STATIC_OUTDIR)/db_bench:db/db_bench.cc $(STATIC_LIBOBJECTS) $(TESTUTIL)
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) db/db_bench.cc $(STATIC_LIBOBJECTS) $(TESTUTIL) -o $@ $(LIBS)
+
+$(STATIC_OUTDIR)/db_new_bench:db/db_new_bench.cc $(STATIC_LIBOBJECTS) $(TESTUTIL)
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) db/db_new_bench.cc $(STATIC_LIBOBJECTS) $(TESTUTIL) -o $@ $(LIBS)
 
 $(STATIC_OUTDIR)/db_bench_sqlite3:doc/bench/db_bench_sqlite3.cc $(STATIC_LIBOBJECTS) $(TESTUTIL)
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) doc/bench/db_bench_sqlite3.cc $(STATIC_LIBOBJECTS) $(TESTUTIL) -o $@ -lsqlite3 $(LIBS)
