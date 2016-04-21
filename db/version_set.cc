@@ -448,7 +448,8 @@ bool Version::UpdateStats(const GetStats& stats) {
   FileMetaData* f = stats.seek_file;
   if (f != NULL) {
     f->allowed_seeks--;
-    if (f->allowed_seeks <= 0 && file_to_compact_ == NULL) {
+    if (f->allowed_seeks <= 0 && file_to_compact_ == NULL &&
+        stats.seek_file_level < config::kNumLevels - 1) {
       file_to_compact_ = f;
       file_to_compact_level_ = stats.seek_file_level;
       return true;
