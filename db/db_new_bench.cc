@@ -21,7 +21,7 @@
 #define READ_FRAC 0.5
 #define SEED 0 
 
-static int FLAGS_num = 100000;
+static int FLAGS_num = 1000000;
 
 static int FLAGS_reads = -1;
 
@@ -63,6 +63,8 @@ static bool FLAGS_reuse_logs = false;
 
 // Use the db with the following name.
 static const char* FLAGS_db = "albertsam_bench";
+
+static leveldb::CompactionStrategy FLAGS_strategy = leveldb::kSizeTiered;
 
 namespace leveldb {
 
@@ -147,6 +149,7 @@ class DBCompareBench {
         fprintf(stderr, "open error: %s\n", s.ToString().c_str());
         exit(1);
       }
+      /* dbfull()->SetCompactionStrategy(FLAGS_strategy); */
     }
  
     void DoWrite(int n) {
@@ -216,6 +219,8 @@ class DBCompareBench {
 
 int main(int argc, char** argv) {
   leveldb::DBCompareBench benchmark;
+
+  FLAGS_write_buffer_size = leveldb::Options().write_buffer_size;
 
   // create database
   benchmark.Open();
