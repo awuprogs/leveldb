@@ -833,6 +833,7 @@ Status DBImpl::FinishCompactionOutputFile(CompactionState* compact,
   compact->builder = NULL;
 
   // Finish and check for file errors
+  // TODO: insert write hook here
   if (s.ok()) {
     s = compact->outfile->Sync();
   }
@@ -1459,6 +1460,11 @@ void DBImpl::SetCompactionFactor(int factor) {
   versions_->SetCompactionFactor(factor);
 }
 
+int DBImpl::GetEpoch() {
+  MutexLock l(&mutex_);
+  return versions_->GetEpoch();
+}
+
 void DBImpl::GetApproximateSizes(
     const Range* range, int n,
     uint64_t* sizes) {
@@ -1483,6 +1489,17 @@ void DBImpl::GetApproximateSizes(
     MutexLock l(&mutex_);
     v->Unref();
   }
+}
+
+CompactionStats DBImpl::GetTotalCompactionStats() {
+  CompactionStats stats;
+  for (int i = 0; i < config::kNumLevels; i++) {
+    stats.micros        += stats_[i].micros;
+    stats.bytes_read    += stats_[i].bytes_read;
+    stats.bytes_written += stats_[i].bytes_written;
+  }
+
+  return stats;
 }
 
 // Default implementations of convenience methods that subclasses of DB

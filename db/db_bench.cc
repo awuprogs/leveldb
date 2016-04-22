@@ -22,6 +22,8 @@
 //   Actual benchmarks:
 //      fillseq       -- write N values in sequential key order in async mode
 //      fillrandom    -- write N values in random key order in async mode
+//      fillperiod    -- write values from the first time we touch the last
+//                       level to the next time we do
 //      overwrite     -- overwrite N values in random key order in async mode
 //      fillsync      -- write N/100 values in random key order in sync mode
 //      fill100K      -- write N/1000 100K values in random order in async mode
@@ -45,6 +47,7 @@ static const char* FLAGS_benchmarks =
     "fillseq,"
     "fillsync,"
     "fillrandom,"
+    "fillperiod,"
     "overwrite,"
     "readrandom,"
     "readrandom,"  // Extra run to allow previous compactions to quiesce
@@ -66,6 +69,9 @@ static int FLAGS_num = 1000000;
 
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 static int FLAGS_reads = -1;
+
+// Instead of using a set number, measure for a whole period
+static int FLAGS_period = false;
 
 // Number of concurrent threads to run.
 static int FLAGS_threads = 1;
@@ -246,10 +252,12 @@ class Stats {
     bytes_ += n;
   }
 
-  void Report(const Slice& name) {
+  void Report(const Slice& name, CompactionStats stats) {
     // Pretend at least one op was done in case we are running a benchmark
     // that does not call FinishedSingleOp().
     if (done_ < 1) done_ = 1;
+
+    // TODO: include compaction statistics
 
     std::string extra;
     if (bytes_ > 0) {
@@ -263,11 +271,16 @@ class Stats {
     }
     AppendWithSpace(&extra, message_);
 
-    fprintf(stdout, "%-12s : %11.3f micros/op;%s%s\n",
+    fprintf(stdout, "%-12s : %11.3f micros/op;%s%s",
             name.ToString().c_str(),
             seconds_ * 1e6 / done_,
             (extra.empty() ? "" : " "),
             extra.c_str());
+
+    fprintf(stdout, "%-12s : %.3f bytes of I/O per operation\n",
+            name.ToString().c_str(),
+            (double)(stats.bytes_read + stats.bytes_written + bytes_) / done_);
+
     if (FLAGS_histogram) {
       fprintf(stdout, "Microseconds per op:\n%s\n", hist_.ToString().c_str());
     }
@@ -466,6 +479,10 @@ class Benchmark {
       } else if (name == Slice("fillrandom")) {
         fresh_db = true;
         method = &Benchmark::WriteRandom;
+      } else if (name == Slice("fillperiod")) {
+        fresh_db = true;
+        FLAGS_period = true;
+        method = &Benchmark::WriteFullPeriod;
       } else if (name == Slice("overwrite")) {
         fresh_db = false;
         method = &Benchmark::WriteRandom;
@@ -611,7 +628,9 @@ class Benchmark {
     for (int i = 1; i < n; i++) {
       arg[0].thread->stats.Merge(arg[i].thread->stats);
     }
-    arg[0].thread->stats.Report(name);
+
+    CompactionStats stats = reinterpret_cast<DBImpl*>(db_)->GetTotalCompactionStats();
+    arg[0].thread->stats.Report(name, stats);
 
     for (int i = 0; i < n; i++) {
       delete arg[i].thread;
@@ -735,6 +754,10 @@ class Benchmark {
     DoWrite(thread, false);
   }
 
+  void WriteFullPeriod(ThreadState* thread) {
+    DoWrite(thread, false);
+  }
+
   void DoWrite(ThreadState* thread, bool seq) {
     if (num_ != FLAGS_num) {
       char msg[100];
@@ -746,7 +769,13 @@ class Benchmark {
     WriteBatch batch;
     Status s;
     int64_t bytes = 0;
-    for (int i = 0; i < num_; i += entries_per_batch_) {
+    int i = 0;
+    while (true) {
+      if ((FLAGS_period && reinterpret_cast<DBImpl*>(db_)->GetEpoch() == 2) ||
+              (!FLAGS_period && i >= num_)) {
+        break;
+      }
+
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
         const int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
@@ -761,8 +790,10 @@ class Benchmark {
         fprintf(stderr, "put error: %s\n", s.ToString().c_str());
         exit(1);
       }
+
+      thread->stats.AddBytes(bytes);
+      i += entries_per_batch_;
     }
-    thread->stats.AddBytes(bytes);
   }
 
   void ReadSequential(ThreadState* thread) {

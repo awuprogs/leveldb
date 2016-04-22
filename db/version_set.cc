@@ -867,7 +867,8 @@ VersionSet::VersionSet(const std::string& dbname,
       dummy_versions_(this),
       current_(NULL),
       compaction_strategy_(kLevelTiered),
-      compact_factor_(10) {
+      compact_factor_(10),
+      epoch_(0) {
   AppendVersion(new Version(this));
 }
 
@@ -1183,6 +1184,10 @@ void VersionSet::Finalize(Version* v) {
 
   v->compaction_level_ = best_level;
   v->compaction_score_ = best_score;
+
+  if (best_level == 1) {
+    epoch_++;
+  }
 }
 
 Status VersionSet::WriteSnapshot(log::Writer* log) {

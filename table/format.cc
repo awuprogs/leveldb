@@ -63,6 +63,7 @@ Status Footer::DecodeFrom(Slice* input) {
   return result;
 }
 
+// TODO: insert read hook
 Status ReadBlock(RandomAccessFile* file,
                  const ReadOptions& options,
                  const BlockHandle& handle,

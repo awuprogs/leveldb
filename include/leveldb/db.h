@@ -43,6 +43,20 @@ enum CompactionStrategy {
   kSizeTiered
 };
 
+struct CompactionStats {
+  int64_t micros;
+  int64_t bytes_read;
+  int64_t bytes_written;
+
+  CompactionStats() : micros(0), bytes_read(0), bytes_written(0) { }
+
+  void Add(const CompactionStats& c) {
+    this->micros += c.micros;
+    this->bytes_read += c.bytes_read;
+    this->bytes_written += c.bytes_written;
+  }
+};
+
 // A DB is a persistent ordered map from keys to values.
 // A DB is safe for concurrent access from multiple threads without
 // any external synchronization.
@@ -134,6 +148,7 @@ class DB {
   // The results may not include the sizes of recently written data.
   virtual void GetApproximateSizes(const Range* range, int n,
                                    uint64_t* sizes) = 0;
+
 
   // Compact the underlying storage for the key range [*begin,*end].
   // In particular, deleted and overwritten versions are discarded,

@@ -278,8 +278,13 @@ class VersionSet {
   void SetCompactionStrategy(enum CompactionStrategy s) {
     compaction_strategy_ = s;
   }
+
   enum CompactionStrategy GetCompactionStrategy() const {
     return compaction_strategy_;
+  }
+
+  int GetEpoch() const {
+    return epoch_;
   }
 
   void SetCompactionFactor(int factor) {
@@ -338,6 +343,9 @@ class VersionSet {
   // Compaction strategy
   enum CompactionStrategy compaction_strategy_;
   int compact_factor_;
+
+  // Indicates that we have reached the last level for the (epoch_)th time
+  int epoch_;
 
   // No copying allowed
   VersionSet(const VersionSet&);
