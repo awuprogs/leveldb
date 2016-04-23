@@ -1185,7 +1185,7 @@ void VersionSet::Finalize(Version* v) {
   v->compaction_level_ = best_level;
   v->compaction_score_ = best_score;
 
-  if (best_level == 1) {
+  if (best_level >= config::kNumLevels - 1) {
     epoch_++;
   }
 }

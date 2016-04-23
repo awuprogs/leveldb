@@ -257,8 +257,6 @@ class Stats {
     // that does not call FinishedSingleOp().
     if (done_ < 1) done_ = 1;
 
-    // TODO: include compaction statistics
-
     std::string extra;
     if (bytes_ > 0) {
       // Rate is computed on actual elapsed time, not the sum of per-thread
@@ -271,14 +269,13 @@ class Stats {
     }
     AppendWithSpace(&extra, message_);
 
-    fprintf(stdout, "%-12s : %11.3f micros/op;%s%s",
+    fprintf(stdout, "%-12s : %11.3f micros/op;%s%s; ",
             name.ToString().c_str(),
             seconds_ * 1e6 / done_,
-            (extra.empty() ? "" : " "),
+            extra.empty() ? "" : " ",
             extra.c_str());
 
-    fprintf(stdout, "%-12s : %.3f bytes of I/O per operation\n",
-            name.ToString().c_str(),
+    fprintf(stdout, "%.3f bytes of I/O per operation\n",
             (double)(stats.bytes_read + stats.bytes_written + bytes_) / done_);
 
     if (FLAGS_histogram) {
