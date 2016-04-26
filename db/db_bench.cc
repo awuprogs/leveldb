@@ -252,7 +252,7 @@ class Stats {
     bytes_ += n;
   }
 
-  void Report(const Slice& name, CompactionStats stats) {
+  void Report(const Slice& name, CompactionStats old_stats, CompactionStats stats) {
     // Pretend at least one op was done in case we are running a benchmark
     // that does not call FinishedSingleOp().
     if (done_ < 1) done_ = 1;
@@ -276,7 +276,8 @@ class Stats {
             extra.c_str());
 
     fprintf(stdout, "%.3f bytes of I/O per operation\n",
-            (double)(stats.bytes_read + stats.bytes_written + bytes_) / done_);
+            (double)(stats.bytes_read - old_stats.bytes_read +
+                     stats.bytes_written - old_stats.bytes_written + bytes_) / done_);
 
     if (FLAGS_histogram) {
       fprintf(stdout, "Microseconds per op:\n%s\n", hist_.ToString().c_str());
@@ -600,6 +601,8 @@ class Benchmark {
     shared.num_done = 0;
     shared.start = false;
 
+    CompactionStats old_stats = reinterpret_cast<DBImpl*>(db_)->GetTotalCompactionStats();
+
     ThreadArg* arg = new ThreadArg[n];
     for (int i = 0; i < n; i++) {
       arg[i].bm = this;
@@ -627,7 +630,7 @@ class Benchmark {
     }
 
     CompactionStats stats = reinterpret_cast<DBImpl*>(db_)->GetTotalCompactionStats();
-    arg[0].thread->stats.Report(name, stats);
+    arg[0].thread->stats.Report(name, old_stats, stats);
 
     for (int i = 0; i < n; i++) {
       delete arg[i].thread;
@@ -788,9 +791,10 @@ class Benchmark {
         exit(1);
       }
 
-      thread->stats.AddBytes(bytes);
       i += entries_per_batch_;
     }
+
+    thread->stats.AddBytes(bytes);
   }
 
   void ReadSequential(ThreadState* thread) {
