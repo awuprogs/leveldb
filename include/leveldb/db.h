@@ -55,6 +55,12 @@ struct CompactionStats {
     this->bytes_read += c.bytes_read;
     this->bytes_written += c.bytes_written;
   }
+
+  void Subtract(const CompactionStats& c) {
+    this->micros -= c.micros;
+    this->bytes_read -= c.bytes_read;
+    this->bytes_written -= c.bytes_written;
+  }
 };
 
 // A DB is a persistent ordered map from keys to values.

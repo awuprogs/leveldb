@@ -287,6 +287,10 @@ class VersionSet {
     return epoch_;
   }
 
+  int64_t GetTotalBytesRead() const {
+    return theoretical_bytes_read_;
+  }
+
   void SetCompactionFactor(int factor) {
     compact_factor_ = factor;
   }
@@ -346,6 +350,7 @@ class VersionSet {
 
   // Indicates that we have reached the last level for the (epoch_)th time
   int epoch_;
+  int64_t theoretical_bytes_read_;
 
   // No copying allowed
   VersionSet(const VersionSet&);

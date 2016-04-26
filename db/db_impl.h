@@ -68,6 +68,7 @@ class DBImpl : public DB {
   void RecordReadSample(Slice key);
 
   CompactionStats GetTotalCompactionStats();
+  int64_t GetTotalBytesRead();
   virtual int GetEpoch();
 
  private:

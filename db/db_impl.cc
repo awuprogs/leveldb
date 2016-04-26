@@ -1492,6 +1492,7 @@ void DBImpl::GetApproximateSizes(
 }
 
 CompactionStats DBImpl::GetTotalCompactionStats() {
+  MutexLock l(&mutex_);
   CompactionStats stats;
   for (int i = 0; i < config::kNumLevels; i++) {
     stats.micros        += stats_[i].micros;
@@ -1500,6 +1501,11 @@ CompactionStats DBImpl::GetTotalCompactionStats() {
   }
 
   return stats;
+}
+
+int64_t DBImpl::GetTotalBytesRead() {
+  MutexLock l(&mutex_);
+  return versions_->GetTotalBytesRead();
 }
 
 // Default implementations of convenience methods that subclasses of DB
