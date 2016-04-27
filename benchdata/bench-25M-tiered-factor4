@@ -1,0 +1,10 @@
+Keys:       16 bytes each
+Values:     100 bytes each (50 bytes after compression)
+Entries:    25000000
+RawSize:    2765.7 MB (estimated)
+FileSize:   1573.6 MB (estimated)
+WARNING: Snappy compression is not enabled
+------------------------------------------------
+fillrandom   :       5.663 micros/op;   19.5 MB/s; 1109.847 bytes of I/O per operation
+overwrite    :       9.450 micros/op;   11.7 MB/s; 1301.629 bytes of I/O per operation
+readrandom   :     233.865 micros/op; (1000000 of 25000000 found); 4675403.004 bytes of I/O per operation
