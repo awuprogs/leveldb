@@ -252,7 +252,7 @@ class Stats {
     bytes_ += n;
   }
 
-  void Report(const Slice& name, CompactionStats stats, int64_t bytes_read) {
+  void Report(const Slice& name, CompactionStats stats, int64_t bytes_read_get) {
     // Pretend at least one op was done in case we are running a benchmark
     // that does not call FinishedSingleOp().
     if (done_ < 1) done_ = 1;
@@ -275,8 +275,11 @@ class Stats {
             extra.empty() ? "" : " ",
             extra.c_str());
 
-    fprintf(stdout, "%.3f bytes of I/O per operation\n",
-            (double)(stats.bytes_read + stats.bytes_written + bytes_read) / done_);
+    double comp_read = (double)stats.bytes_read / done_;
+    double comp_write = (double)stats.bytes_written / done_;
+    double get_read = (double)bytes_read_get / done_;
+    fprintf(stdout, "%.3f bytes/op compact read; %.3f bytes/op compact write; %.3f bytes/op Get read\n",
+            comp_read, comp_write, get_read);
 
     if (FLAGS_histogram) {
       fprintf(stdout, "Microseconds per op:\n%s\n", hist_.ToString().c_str());
