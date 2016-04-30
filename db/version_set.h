@@ -22,6 +22,7 @@
 #include "db/version_edit.h"
 #include "port/port.h"
 #include "port/thread_annotations.h"
+#include "util/mutexlock.h"
 
 namespace leveldb {
 
@@ -287,7 +288,8 @@ class VersionSet {
     return epoch_;
   }
 
-  int64_t GetTotalBytesRead() const {
+  int64_t GetTotalBytesRead() {
+    MutexLock l(&stats_mutex_);
     return theoretical_bytes_read_;
   }
 
@@ -350,7 +352,12 @@ class VersionSet {
 
   // Indicates that we have reached the last level for the (epoch_)th time
   int epoch_;
+  port::Mutex stats_mutex_;
   int64_t theoretical_bytes_read_;
+  void CountTheoreticalBytesRead(int64_t increment) {
+    MutexLock l(&stats_mutex_);
+    theoretical_bytes_read_ += increment;
+  }
 
   // No copying allowed
   VersionSet(const VersionSet&);

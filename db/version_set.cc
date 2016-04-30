@@ -415,7 +415,7 @@ Status Version::Get(const ReadOptions& options,
         last_file_read = f;
         last_file_read_level = level;
 
-        vset_->theoretical_bytes_read_ += f->file_size;
+        vset_->CountTheoreticalBytesRead(f->file_size);
 
         Saver saver;
         saver.state = kNotFound;
