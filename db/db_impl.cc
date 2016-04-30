@@ -694,7 +694,6 @@ void DBImpl::BackgroundCompaction() {
 
   if (force_leveled_requested_) {
     ForceLeveled();
-    force_leveled_requested_ = false;
     return;
   }
 
@@ -782,7 +781,8 @@ Status DBImpl::ForceLeveled() {
     return Status::OK();
   }
 
-  for (int i = 1; i < config::kNumLevels; i++) {
+  int i;
+  for (i = 1; i < config::kNumLevels; i++) {
     Status status;
     Compaction* c = versions_->SquashLevel(i);
     if (c == NULL) {
@@ -797,10 +797,20 @@ Status DBImpl::ForceLeveled() {
     if (!status.ok()) {
       return status;
     }
+
+    // We'll come back to this after potentially doing an immutable
+    // compaction (which is prioritized to allow writes to go through).
+    break;
   }
 
   DeleteObsoleteFiles();
-  versions_->SetCompactionStrategy(kLevelTiered);
+
+  if (i == config::kNumLevels) {
+    // We finished collapsing all levels
+    versions_->SetCompactionStrategy(kLevelTiered);
+    force_leveled_requested_ = false;
+  }
+
   return Status::OK();
 }
 
