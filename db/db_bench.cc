@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "db/db_impl.h"
 #include "db/version_set.h"
 #include "leveldb/cache.h"
@@ -74,6 +75,9 @@ static int FLAGS_reads = -1;
 
 // Stride length for strided tests
 static int FLAGS_stride = 30000;
+
+// Ratio of writes to reads for readwritemixed
+static int FLAGS_write_ratio = 10;
 
 // Instead of using a set number, measure for a whole period
 static int FLAGS_period = false;
@@ -561,6 +565,8 @@ class Benchmark {
       } else if (name == Slice("readrandommedium")) {
         reads_ /= 10;
         method = &Benchmark::ReadRandom;
+      } else if (name == Slice("readwritemixed")) {
+        method = &Benchmark::ReadWriteMixed;
       } else if (name == Slice("deleteseq")) {
         method = &Benchmark::DeleteSeq;
       } else if (name == Slice("deleterandom")) {
@@ -1010,6 +1016,54 @@ class Benchmark {
     }
   }
 
+  void ReadWriteMixed(ThreadState* thread) {
+    if (num_ != FLAGS_num) {
+      char msg[100];
+      snprintf(msg, sizeof(msg), "(%d ops)", num_);
+      thread->stats.AddMessage(msg);
+    }
+
+    int num_writes = 0;
+
+    // write data
+    RandomGenerator gen;
+    Random rand(time(NULL));
+    WriteBatch batch;
+    Status s;
+    int64_t bytes = 0;
+
+    // read data
+    ReadOptions read_options;
+    std::string value;
+    int found = 0;
+
+    for (int i = 0; i < num_; i++) {
+      const int k = thread->NextKey();
+      char key[100];
+      snprintf(key, sizeof(key), "%016d", k);
+      if (rand.Uniform(100) < FLAGS_write_ratio) {
+        num_writes++;
+        s = db_->Put(write_options_, key, gen.Generate(value_size_));
+        if (!s.ok()) {
+          fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+          exit(1);
+        }
+        bytes += value_size_ + strlen(key);
+      } else {
+        if (db_->Get(read_options, key, &value).ok()) {
+          found++;
+        }
+      }
+      thread->stats.FinishedSingleOp();
+    }
+
+    //thread->stats.AddBytes(bytes);
+
+    char msg[100];
+    snprintf(msg, sizeof(msg), "(%d of %d reads found)", found, num_ - num_writes);
+    thread->stats.AddMessage(msg);
+  }
+
   void Compact(ThreadState* thread) {
     db_->CompactRange(NULL, NULL);
   }
@@ -1102,6 +1156,8 @@ int main(int argc, char** argv) {
       FLAGS_cfactor = n;
     } else if (sscanf(argv[i], "--stride=%d%c", &n, &junk) == 1) {
       FLAGS_stride = n;
+    } else if (sscanf(argv[i], "--write_ratio=%d%c", &n, &junk) == 1) {
+      FLAGS_write_ratio = n;
     } else {
       fprintf(stderr, "Invalid flag '%s'\n", argv[i]);
       exit(1);
