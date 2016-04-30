@@ -72,6 +72,9 @@ static int FLAGS_num = 1000000;
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 static int FLAGS_reads = -1;
 
+// Stride length for strided tests
+static int FLAGS_stride = 30000;
+
 // Instead of using a set number, measure for a whole period
 static int FLAGS_period = false;
 
@@ -313,12 +316,43 @@ struct SharedState {
 struct ThreadState {
   int tid;             // 0..n-1 when running in n threads
   Random rand;         // Has different seeds for different threads
+  enum Order {
+    kSequential,
+    kRandom,
+    kStrided
+  } key_order;
+  int counter;
+  int stride_round;
   Stats stats;
   SharedState* shared;
 
   ThreadState(int index)
       : tid(index),
-        rand(1000 + index) {
+        rand(1000 + index),
+        counter(0),
+        stride_round(0) {
+  }
+
+  int NextKey() {
+    int nxt;
+    switch (key_order) {
+      case kSequential:
+        nxt = counter++;
+        break;
+      case kRandom:
+        nxt = rand.Next() % FLAGS_num;
+        break;
+      case kStrided:
+        if (counter > FLAGS_num) {
+          counter = ++stride_round;
+        }
+        nxt = counter;
+        counter += FLAGS_stride;
+        break;
+      default:
+        assert(0);
+    }
+    return nxt;
   }
 };
 
@@ -485,6 +519,17 @@ class Benchmark {
         fresh_db = true;
         FLAGS_period = true;
         method = &Benchmark::WriteFullPeriod;
+      } else if (name == Slice("fillstrided")) {
+        fresh_db = true;
+        method = &Benchmark::WriteStrided;
+      } else if (name == Slice("fillstridedfront")) {
+        fresh_db = true;
+        num_ /= 2;
+        method = &Benchmark::WriteStrided;
+      } else if (name == Slice("fillstridedback")) {
+        fresh_db = false;
+        num_ /= 2;
+        method = &Benchmark::WriteStrided;
       } else if (name == Slice("overwrite")) {
         fresh_db = false;
         method = &Benchmark::WriteRandom;
@@ -761,18 +806,26 @@ class Benchmark {
   }
 
   void WriteSeq(ThreadState* thread) {
-    DoWrite(thread, true);
+    thread->key_order = ThreadState::kSequential;
+    DoWrite(thread);
   }
 
   void WriteRandom(ThreadState* thread) {
-    DoWrite(thread, false);
+    thread->key_order = ThreadState::kRandom;
+    DoWrite(thread);
+  }
+
+  void WriteStrided(ThreadState* thread) {
+    thread->key_order = ThreadState::kStrided;
+    DoWrite(thread);
   }
 
   void WriteFullPeriod(ThreadState* thread) {
-    DoWrite(thread, false);
+    thread->key_order = ThreadState::kRandom;
+    DoWrite(thread);
   }
 
-  void DoWrite(ThreadState* thread, bool seq) {
+  void DoWrite(ThreadState* thread) {
     if (num_ != FLAGS_num) {
       char msg[100];
       snprintf(msg, sizeof(msg), "(%d ops)", num_);
@@ -792,7 +845,7 @@ class Benchmark {
 
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
-        const int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+        const int k = thread->NextKey();
         char key[100];
         snprintf(key, sizeof(key), "%016d", k);
         batch.Put(key, gen.Generate(value_size_));
@@ -1047,6 +1100,8 @@ int main(int argc, char** argv) {
       FLAGS_strategy = leveldb::kSizeTiered;
     } else if (sscanf(argv[i], "--compact_factor=%d%c", &n, &junk) == 1) {
       FLAGS_cfactor = n;
+    } else if (sscanf(argv[i], "--stride=%d%c", &n, &junk) == 1) {
+      FLAGS_stride = n;
     } else {
       fprintf(stderr, "Invalid flag '%s'\n", argv[i]);
       exit(1);
