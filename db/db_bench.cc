@@ -40,6 +40,8 @@
 //      acquireload   -- load N*1000 times
 //   Meta operations:
 //      compact     -- Compact the entire DB
+//      goleveled   -- Switch to leveled compaction
+//      gotiered    -- Switch to tiered compaction
 //      stats       -- Print DB stats
 //      sstables    -- Print sstable info
 //      heapprofile -- Dump a heap profile (if supported by this port)
@@ -511,6 +513,9 @@ class Benchmark {
       } else if (name == Slice("readrandomsmall")) {
         reads_ /= 1000;
         method = &Benchmark::ReadRandom;
+      } else if (name == Slice("readrandommedium")) {
+        reads_ /= 10;
+        method = &Benchmark::ReadRandom;
       } else if (name == Slice("deleteseq")) {
         method = &Benchmark::DeleteSeq;
       } else if (name == Slice("deleterandom")) {
@@ -520,6 +525,10 @@ class Benchmark {
         method = &Benchmark::ReadWhileWriting;
       } else if (name == Slice("compact")) {
         method = &Benchmark::Compact;
+      } else if (name == Slice("goleveled")) {
+        method = &Benchmark::GoLeveled;
+      } else if (name == Slice("gotiered")) {
+        method = &Benchmark::GoTiered;
       } else if (name == Slice("crc32c")) {
         method = &Benchmark::Crc32c;
       } else if (name == Slice("acquireload")) {
@@ -776,7 +785,7 @@ class Benchmark {
     int64_t bytes = 0;
     int i = 0;
     while (true) {
-      if ((FLAGS_period && reinterpret_cast<DBImpl*>(db_)->GetEpoch() == 2) ||
+      if ((FLAGS_period && reinterpret_cast<DBImpl*>(db_)->GetEpoch() >= 2) ||
               (!FLAGS_period && i >= num_)) {
         break;
       }
@@ -950,6 +959,14 @@ class Benchmark {
 
   void Compact(ThreadState* thread) {
     db_->CompactRange(NULL, NULL);
+  }
+
+  void GoLeveled(ThreadState* thread) {
+    db_->SetCompactionStrategy(kLevelTiered);
+  }
+
+  void GoTiered(ThreadState* thread) {
+    db_->SetCompactionStrategy(kSizeTiered);
   }
 
   void PrintStats(const char* key) {
