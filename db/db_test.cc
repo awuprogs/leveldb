@@ -1989,6 +1989,16 @@ class ModelDB: public DB {
   }
   virtual void CompactRange(const Slice* start, const Slice* end) {
   }
+  virtual CompactionStrategy GetCurrentCompactionStrategy() {
+    return kLevelTiered;
+  }
+  virtual void SetCompactionStrategy(CompactionStrategy s) {
+  }
+  virtual int GetCurrentCompactionFactor() {
+    return 10;
+  }
+  virtual void SetCompactionFactor(int factor) {
+  }
 
  private:
   class ModelIter: public Iterator {

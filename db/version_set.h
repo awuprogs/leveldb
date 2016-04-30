@@ -246,6 +246,8 @@ class VersionSet {
       const InternalKey* begin,
       const InternalKey* end);
 
+  Compaction* SquashLevel(int level);
+
   // Return the maximum overlapping data (in bytes) at next level for any
   // file at a level >= 1.
   int64_t MaxNextLevelOverlappingBytes();
@@ -271,7 +273,7 @@ class VersionSet {
   // Return a human-readable short (single-line) summary of the number
   // of files per level.  Uses *scratch as backing store.
   struct LevelSummaryStorage {
-    char buffer[100];
+    char buffer[config::kNumLevels*6 + 10];
   };
   const char* LevelSummary(LevelSummaryStorage* scratch) const;
 
@@ -295,6 +297,10 @@ class VersionSet {
 
   void SetCompactionFactor(int factor) {
     compact_factor_ = factor;
+  }
+
+  int GetCompactionFactor() {
+    return compact_factor_;
   }
 
  private:
@@ -370,8 +376,10 @@ class Compaction {
   ~Compaction();
 
   // Return the level that is being compacted.  Inputs from "level"
-  // and "level+1" will be merged to produce a set of "level+1" files.
+  // and "level+1" will be merged to produce a set of "target" files.
   int level() const { return level_; }
+
+  int target() const { return target_; }
 
   // Return the object that holds the edits to the descriptor done
   // by this compaction.
@@ -415,6 +423,7 @@ class Compaction {
   explicit Compaction(int level, Version* input);
 
   int level_;
+  int target_;
   uint64_t max_output_file_size_;
   Version* input_version_;
   VersionEdit edit_;

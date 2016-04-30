@@ -133,6 +133,7 @@ DBImpl::DBImpl(const Options& raw_options, const std::string& dbname)
       seed_(0),
       tmp_batch_(new WriteBatch),
       bg_compaction_scheduled_(false),
+      force_leveled_requested_(false),
       manual_compaction_(NULL) {
   has_imm_.Release_Store(NULL);
 
@@ -651,7 +652,8 @@ void DBImpl::MaybeScheduleCompaction() {
     // Already got an error; no more changes
   } else if (imm_ == NULL &&
              manual_compaction_ == NULL &&
-             !versions_->NeedsCompaction()) {
+             !versions_->NeedsCompaction() &&
+             !force_leveled_requested_) {
     // No work to be done
   } else {
     bg_compaction_scheduled_ = true;
@@ -687,6 +689,12 @@ void DBImpl::BackgroundCompaction() {
 
   if (imm_ != NULL) {
     CompactMemTable();
+    return;
+  }
+
+  if (force_leveled_requested_) {
+    ForceLeveled();
+    force_leveled_requested_ = false;
     return;
   }
 
@@ -765,6 +773,35 @@ void DBImpl::BackgroundCompaction() {
     }
     manual_compaction_ = NULL;
   }
+}
+
+Status DBImpl::ForceLeveled() {
+  mutex_.AssertHeld();
+
+  if (versions_->GetCompactionStrategy() == kLevelTiered) {
+    return Status::OK();
+  }
+
+  for (int i = 1; i < config::kNumLevels; i++) {
+    Status status;
+    Compaction* c = versions_->SquashLevel(i);
+    if (c == NULL) {
+      continue;
+    }
+
+    CompactionState* compact = new CompactionState(c);
+    status = DoCompactionWork(compact);
+    CleanupCompaction(compact);
+    c->ReleaseInputs();
+
+    if (!status.ok()) {
+      return status;
+    }
+  }
+
+  DeleteObsoleteFiles();
+  versions_->SetCompactionStrategy(kLevelTiered);
+  return Status::OK();
 }
 
 void DBImpl::CleanupCompaction(CompactionState* compact) {
@@ -869,16 +906,16 @@ Status DBImpl::InstallCompactionResults(CompactionState* compact) {
       compact->compaction->num_input_files(0),
       compact->compaction->level(),
       compact->compaction->num_input_files(1),
-      compact->compaction->level() + 1,
+      compact->compaction->target(),
       static_cast<long long>(compact->total_bytes));
 
   // Add compaction outputs
   compact->compaction->AddInputDeletions(compact->compaction->edit());
-  const int level = compact->compaction->level();
+  const int target = compact->compaction->target();
   for (size_t i = 0; i < compact->outputs.size(); i++) {
     const CompactionState::Output& out = compact->outputs[i];
     compact->compaction->edit()->AddFile(
-        level + 1,
+        target,
         out.number, out.file_size, out.smallest, out.largest);
   }
   return versions_->LogAndApply(compact->compaction->edit(), &mutex_);
@@ -1452,12 +1489,23 @@ CompactionStrategy DBImpl::GetCurrentCompactionStrategy() {
 
 void DBImpl::SetCompactionStrategy(CompactionStrategy s) {
   MutexLock l(&mutex_);
-  versions_->SetCompactionStrategy(s);
+  if (s == kLevelTiered && versions_->GetCompactionStrategy() == kSizeTiered) {
+    force_leveled_requested_ = true;
+    MaybeScheduleCompaction();
+    // versions_->SetCompactionStrategy called from ForceLeveled
+  } else {
+    versions_->SetCompactionStrategy(s);
+  }
 }
 
 void DBImpl::SetCompactionFactor(int factor) {
   MutexLock l(&mutex_);
   versions_->SetCompactionFactor(factor);
+}
+
+int DBImpl::GetCurrentCompactionFactor() {
+  MutexLock l(&mutex_);
+  return versions_->GetCompactionFactor();
 }
 
 int DBImpl::GetEpoch() {

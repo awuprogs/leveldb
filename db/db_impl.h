@@ -43,6 +43,7 @@ class DBImpl : public DB {
   virtual void CompactRange(const Slice* begin, const Slice* end);
   virtual CompactionStrategy GetCurrentCompactionStrategy();
   virtual void SetCompactionStrategy(CompactionStrategy s);
+  virtual int GetCurrentCompactionFactor();
   virtual void SetCompactionFactor(int factor);
 
   // Extra methods (for testing) that are not in the public DB interface
@@ -120,6 +121,8 @@ class DBImpl : public DB {
   Status DoCompactionWork(CompactionState* compact)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  Status ForceLeveled() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
   Status OpenCompactionOutputFile(CompactionState* compact);
   Status FinishCompactionOutputFile(CompactionState* compact, Iterator* input);
   Status InstallCompactionResults(CompactionState* compact)
@@ -174,6 +177,9 @@ class DBImpl : public DB {
     InternalKey tmp_storage;    // Used to keep track of compaction progress
   };
   ManualCompaction* manual_compaction_;
+
+  // Request a transition to leveled compaction.
+  bool force_leveled_requested_;
 
   VersionSet* versions_;
 

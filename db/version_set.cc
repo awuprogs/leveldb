@@ -1236,17 +1236,18 @@ int VersionSet::NumLevelFiles(int level) const {
 }
 
 const char* VersionSet::LevelSummary(LevelSummaryStorage* scratch) const {
-  // Update code if kNumLevels changes
-  assert(config::kNumLevels == 7);
-  snprintf(scratch->buffer, sizeof(scratch->buffer),
-           "files[ %d %d %d %d %d %d %d ]",
-           NumLevelFiles(0),
-           NumLevelFiles(1),
-           NumLevelFiles(2),
-           NumLevelFiles(3),
-           NumLevelFiles(4),
-           NumLevelFiles(5),
-           NumLevelFiles(6));
+  char *buf = scratch->buffer;
+  int size = sizeof(scratch->buffer);
+  int amt;
+  amt = snprintf(buf, size, "files[ ");
+  buf += amt;
+  size -= amt;
+  for (int i = 0; i < config::kNumLevels; i++) {
+    amt = snprintf(buf, size, "%d ", NumLevelFiles(i));
+    buf += amt;
+    size -= amt;
+  }
+  snprintf(buf, size, "]");
   return scratch->buffer;
 }
 
@@ -1575,8 +1576,29 @@ Compaction* VersionSet::CompactRange(
   return c;
 }
 
+Compaction* VersionSet::SquashLevel(int level) {
+  if (current_->files_[level].size() <= 1) {
+    return NULL;
+  }
+
+  std::vector<FileMetaData*> inputs;
+  inputs.reserve(current_->NumFiles(level));
+  for (size_t i = 0; i < current_->files_[level].size(); i++) {
+    std::vector<FileMetaData*> run = current_->files_[level][i];
+    inputs.insert(inputs.end(), run.begin(), run.end());
+  }
+
+  current_->Ref();
+  // Set to level-1 so these merge into level
+  Compaction* c = new Compaction(level, current_);
+  c->target_ = level;
+  c->inputs_[0] = inputs;
+  return c;
+}
+
 Compaction::Compaction(int level, Version* input)
     : level_(level),
+      target_(level+1),
       max_output_file_size_(MaxFileSizeForLevel(level)),
       grandparent_index_(0),
       seen_key_(false),

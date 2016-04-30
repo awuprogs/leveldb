@@ -168,6 +168,11 @@ class DB {
   //    db->CompactRange(NULL, NULL);
   virtual void CompactRange(const Slice* begin, const Slice* end) = 0;
 
+  virtual CompactionStrategy GetCurrentCompactionStrategy() = 0;
+  virtual void SetCompactionStrategy(CompactionStrategy s) = 0;
+  virtual int GetCurrentCompactionFactor() = 0;
+  virtual void SetCompactionFactor(int factor) = 0;
+
  private:
   // No copying allowed
   DB(const DB&);
